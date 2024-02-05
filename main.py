@@ -1,3 +1,5 @@
+# /usr/bin/env python3
+
 import cv2
 import pytesseract
 import numpy as np
