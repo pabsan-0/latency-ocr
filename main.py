@@ -1,4 +1,4 @@
-# /usr/bin/env python3
+#! /usr/bin/env python3
 
 import cv2
 import pytesseract
@@ -55,7 +55,7 @@ def on_mouse_event(image):
 def select_rois():
 
     # Grab the whole screen
-    image = cv2.pyrDown(np.array(ImageGrab.grab()))
+    image = np.array(ImageGrab.grab())
 
     # Run Roi defining window
     cv2.namedWindow("image")
@@ -66,9 +66,6 @@ def select_rois():
         if key == ord("q"):
             break
     cv2.destroyAllWindows()
-
-    source_roi = [ii * 2 for ii in source_roi]
-    sink_roi = [ii * 2 for ii in sink_roi]
 
 
 def roi_cache_read(location=ROI_CACHE_FILE):
@@ -104,7 +101,11 @@ def infer_ocr(image):
 
 
 def compute_latency(source, sink):
-    return int(source) - int(sink)
+    try:
+        return int(source) - int(sink)
+    except Exception as e:
+        return None
+
 
 
 if __name__ == "__main__":
@@ -129,8 +130,7 @@ if __name__ == "__main__":
         source_text = infer_ocr(image_slice(screenshot, source_roi))
         sink_text   = infer_ocr(image_slice(screenshot, sink_roi))
         
-        latency = compute_latency(source_text, sink_text)
+        print(source_text, sink_text, end=":\t")
 
-        print(source_text)
-        print(sink_text)
-        print(latency)
+        latency = compute_latency(source_text, sink_text)
+        print(latency if latency else "")
