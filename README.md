@@ -19,3 +19,4 @@ Here's the detailed walkthrough:
 For more, call `main.py --help`. Expect having to do some image fine-tuning 
 (thresholding, grayscaling...), mostly due to Tesseract's pitfalls.
 
+![image](doc/demo.png)
