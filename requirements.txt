@@ -1,4 +1,6 @@
+imutils
+mss
 numpy
-opencv_python_headless
+opencv_python
 Pillow
 pytesseract

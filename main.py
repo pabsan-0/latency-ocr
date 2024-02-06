@@ -6,10 +6,13 @@ import numpy as np
 from PIL import ImageGrab
 import argparse    
 import os
+import imutils
+import mss
+import random
 
 
 # while true; do echo -e "$(date +%s%N)\n"; done
-
+monitor = {"top": 0, "left": 0, "width":  1920, "height": 1080}
 ROI_CACHE_FILE = "/tmp/latency_profiler__roi_cache.txt"
 source_roi = []
 sink_roi = []
@@ -55,7 +58,9 @@ def on_mouse_event(image):
 def select_rois():
 
     # Grab the whole screen
-    image = np.array(ImageGrab.grab())
+    # image = np.array(ImageGrab.grab())
+    with mss.mss() as sct:
+        image = np.array(sct.grab(monitor))
 
     # Run Roi defining window
     cv2.namedWindow("image")
@@ -90,14 +95,19 @@ def image_slice(image, xyxy):
     
 
 def infer_ocr(image):
-    gray = cv2.cvtColor(np.array(image), cv2.COLOR_BGR2GRAY)
-    _, thresholded = cv2.threshold(gray, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
+    canvas = np.array(image.copy())
+    canvas = cv2.cvtColor(canvas, cv2.COLOR_BGR2GRAY)
+    canvas = cv2.resize(canvas, (0, 0), fx = 4, fy = 4)
+    canvas = imutils.resize(canvas, width=900)
+    canvas = cv2.GaussianBlur(canvas, (5,5),0)
+    _, canvas = cv2.threshold(canvas, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
      
-    if args.preview:
-        cv2.imshow("preview", thresholded)
-        cv2.waitKey(5)
-    text = pytesseract.image_to_string(thresholded, config='--psm 6 --oem 3')  # PSM 6 assumes a single uniform block of text
-    return text.strip()
+    text = pytesseract.image_to_string(canvas, config=
+        "-c tessedit"
+        "_char_whitelist=' '0123456789"
+        " --psm 6"
+    )
+    return text.strip(), canvas
 
 
 def compute_latency(source, sink):
@@ -112,9 +122,10 @@ if __name__ == "__main__":
 
     # construct the argument parser and parse the arguments
     parser = argparse.ArgumentParser()
-    parser.add_argument("--new-rois", action="store_true", help="Force-run bbox selection wizard")
+    parser.add_argument("--new-rois", action="store_true", help="force-run bbox selection wizard")
     parser.add_argument("--preview", action="store_true", help="whether to preview pre-ocr snip")
-    parser.add_argument("--rate", type=float, help="rate (hz)_at which to run OCR")
+    parser.add_argument("--sanity-check", type=float, default=0, help="chance to store snips for hand verification")
+    # parser.add_argument("--rate", type=float, help="rate (hz)_at which to run OCR")
     args = parser.parse_args()
  
     
@@ -125,12 +136,24 @@ if __name__ == "__main__":
         source_roi, sink_roi = roi_cache_read()
         
     while True:
-        screenshot = np.array(ImageGrab.grab())
+        # screenshot = np.array(ImageGrab.grab())
+        with mss.mss() as sct:
+            screenshot = np.array(sct.grab(monitor))
 
-        source_text = infer_ocr(image_slice(screenshot, source_roi))
-        sink_text   = infer_ocr(image_slice(screenshot, sink_roi))
-        
-        print(source_text, sink_text, end=":\t")
-
+        source_text, source_img  = infer_ocr(image_slice(screenshot, source_roi))
+        sink_text, sink_img   = infer_ocr(image_slice(screenshot, sink_roi))
         latency = compute_latency(source_text, sink_text)
+        
+        if args.preview:
+            cv2.imshow("preview", source_img)
+            cv2.imshow("sink", sink_img)
+            cv2.waitKey(5)
+
+        if random.random() < args.sanity_check:
+            cv2.imwrite("cache/%s_%s_%s.png" % (source_text, sink_text, latency),
+                np.vstack((source_img, sink_img))
+            )
+            print("saved snips to cache!")
+
+        print(source_text, sink_text, end=":\t")
         print(latency if latency else "")
