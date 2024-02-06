@@ -3,7 +3,6 @@
 import cv2
 import pytesseract
 import numpy as np
-from PIL import ImageGrab
 import argparse    
 import os
 import imutils
@@ -58,7 +57,6 @@ def on_mouse_event(image):
 def select_rois():
 
     # Grab the whole screen
-    # image = np.array(ImageGrab.grab())
     with mss.mss() as sct:
         image = np.array(sct.grab(monitor))
 
@@ -136,7 +134,6 @@ if __name__ == "__main__":
         source_roi, sink_roi = roi_cache_read()
         
     while True:
-        # screenshot = np.array(ImageGrab.grab())
         with mss.mss() as sct:
             screenshot = np.array(sct.grab(monitor))
 
@@ -149,7 +146,7 @@ if __name__ == "__main__":
             cv2.imshow("sink", sink_img)
             cv2.waitKey(5)
 
-        if random.random() < args.sanity_check:
+        if random.random() < args.sanity_check and source_text and sink_text and latency:
             cv2.imwrite("cache/%s_%s_%s.png" % (source_text, sink_text, latency),
                 np.vstack((source_img, sink_img))
             )
